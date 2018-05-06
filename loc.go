@@ -1,12 +1,18 @@
 package webstuff
 
 import (
+	"bytes"
 	"math"
 	"fmt"
 	"strconv"
 	"strings"
 	"encoding/json"
 )
+
+// Location reresents an interface for any object storeable in mongo with an explicit ID field
+type Location interface {
+	GetID() string
+}
 
 // Loc contains the coords and methods to handle a 3 axis location on a hex map
 type Loc struct {
@@ -15,6 +21,11 @@ type Loc struct {
 	Y      int     `json:"y"`
 	Z      int     `json:"z"`
 	Status string  `json:"status"` // TODO: default to "new"
+}
+
+// GetID getter for ID field
+func(l Loc) GetID() string {
+	return l.ID
 }
 
 // LocFromCoords generates a Loc instance from x, y and z coordinates.
@@ -40,6 +51,14 @@ func LocFromJSON(jsonIn []byte) (Loc, error) {
 	if err := json.Unmarshal(jsonIn, &result); err != nil {
 		return result, err
 	}
+	d := json.NewDecoder(bytes.NewBuffer(jsonIn))
+	var dd map[string]interface{}
+	if err:= d.Decode( &dd ); err != nil {
+		return result, err
+	}
+	if dd["x"] == nil || dd["y"] == nil || dd["z"] == nil {
+		return result, fmt.Errorf("missing one or more x,y,z elements")
+	}
 	return result, nil
 }
 
@@ -53,17 +72,17 @@ func LocConvert(loc string) (x int, y int, z int, err error) {
 	var n int64
 	n, err = strconv.ParseInt(xyz[0], 10, 64)
 	if err != nil {
-		return x,y,z,fmt.Errorf("Could not parse x value as integer. Got: %s", loc )
+		return x,y,z,fmt.Errorf("could not parse x value as integer. Got: %s", loc )
 	}
 	x = int(n)
 	n, err = strconv.ParseInt(xyz[1], 10, 64)
 	if err != nil {
-		return x,y,z,fmt.Errorf("Could not parse y value as integer. Got: %s", loc )
+		return x,y,z,fmt.Errorf("could not parse y value as integer. Got: %s", loc )
 	}
 	y = int(n)
 	n, err = strconv.ParseInt(xyz[2], 10, 64)
 	if err != nil {
-		return x,y,z,fmt.Errorf("Could not parse z value as integer. Got: %s", loc )
+		return x,y,z,fmt.Errorf("could not parse z value as integer. Got: %s", loc )
 	}
 	z = int(n)
 	return x,y,z,nil
@@ -79,7 +98,7 @@ func (l Loc) JSONForm() []byte {
 	//fmt.Printf("Marshalling loc %v to JSON\n", l)
 	j, err := json.Marshal(l)
 	if err != nil {
-		fmt.Println("Bad things happened in JSON marshal" )
+		fmt.Println("bad things happened in JSON marshal" )
 		panic(err)
 	}
 	return j

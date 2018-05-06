@@ -81,42 +81,43 @@ func TestLocFromCoordsID( t *testing.T) {
 }
 
 func TestJSONForm(t *testing.T) {
-	loc, err := LocFromString( "9.6.3" )
-	if err != nil {
-		t.Fatalf( "Error from Loc creation: %s", err )
-	}
-	expected := []byte( `{"id":"9.6.3","x":9,"y":6,"z":3,"status":"new"}` )
-	assert.Equal( t, expected, loc.JSONForm() )
-}
+    t.Run("Positive", func(t *testing.T) {
+		loc, err := LocFromString( "9.6.3" )
+		if err != nil {
+			t.Fatalf( "Error from Loc creation: %s", err )
+		}
+		expected := []byte( `{"id":"9.6.3","x":9,"y":6,"z":3,"status":"new"}` )
+		assert.Equal( t, expected, loc.JSONForm() )
+	})
 
-func TestLocFromJSONPositive(t *testing.T) {
-	testJSON := []byte( `{"id":"19.6.13","x":19,"y":6,"z":13,"status":"new"}` )
-	expected, _ := LocFromCoords( 19, 6, 13 )
-	actual, err := LocFromJSON( testJSON )
-	require.NoError(t, err, "Didn't want to see an error here")
-	assert.Equal(t, expected, actual )
-}
+	 t.Run("Positive", func(t *testing.T) {
+		testJSON := []byte( `{"id":"19.6.13","x":19,"y":6,"z":13,"status":"new"}` )
+		expected, _ := LocFromCoords( 19, 6, 13 )
+		actual, err := LocFromJSON( testJSON )
+		require.NoError(t, err, "Didn't want to see an error here")
+		assert.Equal(t, expected, actual )
+	})
+	
+	 t.Run("ExtraElements", func(t *testing.T) {
+		testJSON := []byte( `{"id":"19.16.23","x":19,"y":16,"z":23,"status":"new","extra": 1003}` )
+		expected, _ := LocFromCoords( 19, 16, 23 )
+		actual, err := LocFromJSON( testJSON )
+		require.NoError(t, err, "An 'extra' element should be ignored")
+		assert.Equal(t, expected, actual )
+	})
 
-func TestLocFromJSONExtraElements(t *testing.T) {
-	testJSON := []byte( `{"id":"19.16.23","x":19,"y":16,"z":23,"status":"new","extra": 1003}` )
-	expected, _ := LocFromCoords( 19, 16, 23 )
-	actual, err := LocFromJSON( testJSON )
-	require.NoError(t, err, "An 'extra' element should be ignored")
-	assert.Equal(t, expected, actual )
-}
+	 t.Run("WrongType", func(t *testing.T) {
+		testJSON := []byte( `{"id":"19.16.23","x":19,"y":"16","z":23,"status":"new"}` )
+		_, err := LocFromJSON( testJSON )
+		require.Error(t, err, "Should complain about mismatched types")
+	})
 
-func TestLocFromJSONWrongType(t *testing.T) {
-	testJSON := []byte( `{"id":"19.16.23","x":19,"y":"16","z":23,"status":"new"}` )
-	_, err := LocFromJSON( testJSON )
-	require.Error(t, err, "Should complain about mismatched types")
-}
-
-func TestLocFromJSONMissingElement(t *testing.T) {
-	testJSON := []byte( `{"id":"19.6.23","x":19,"z":23,"status":"new"}` )
-	actual, err := LocFromJSON( testJSON )
-	assert.Error(t, err, "Should complain about missing y element")
-	fmt.Printf("Err is %v\n", err )
-	if err == nil { fmt.Printf("Actual: %v\n", actual) }
+	 t.Run("MissingElemen", func(t *testing.T) {
+		testJSON := []byte( `{"id":"19.6.23","x":19,"z":23,"status":"new"}` )
+		_, err := LocFromJSON( testJSON )
+		require.Error(t, err, "Should complain about missing y element")
+		require.Contains(t, err.Error(), "missing", "Not the text we were looking for")
+	})
 }
 
 // Helper function to swallow the multiple return value. Allow a newLoc call within a struct declaration.
@@ -140,9 +141,15 @@ func TestDistanceFrom(t *testing.T) {
 
 	for num, c := range cases {
 		t.Run( fmt.Sprintf( "case#%d", num ), func( t *testing.T ) {
-			fmt.Printf( "-- case: %v.DistanceFrom( %v ) = %d\n", c.origin, c.target, c.expected )
+			//fmt.Printf( "-- case: %v.DistanceFrom( %v ) = %d\n", c.origin, c.target, c.expected )
 			actual := c.origin.DistanceFrom( c.target )
 			assert.Equal( t, c.expected, actual ) 
 		} )
 	}
 }
+
+/* func TestFindNeighbors(t *testing.T) {
+	t.Run("PositiveFromOrigin", func(t *testing.T){
+		t.Error(t, "Not implemented")
+	})
+} */
