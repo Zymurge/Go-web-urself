@@ -1,45 +1,79 @@
-package webstuff
+package main
 
 import (
 	"fmt"
 	"net/http"
+	per "webstuff/persistence"
+
 	"github.com/labstack/echo"
 )
 
-func main() {
-	_echo := echo.New()
+const (
+	mongoURL      string = "localhost:27017"
+	dbName        string = "testDB"
+	locCollection string = "testCollection"
+)
 
-	_echo.GET("/", getDefault)
-	_echo.GET("/yo/:name", getYo)
-	_echo.GET("/yo", func(c echo.Context) error { return c.HTML(http.StatusOK, "<p style='color:red'>Shy, eh?</p>") })
-	_echo.GET("loc/:xyz", getLocXYZ)
-	_echo.PUT("loc/:xyz", putLocXYZ)
-	_echo.Logger.Fatal(_echo.Start(":3210"))
+func main() {
+	mdb := per.NewMongoSession(mongoURL, dbName, 10)
+	h, err := NewHandler(mdb)
+	if err != nil {
+		panic("Couldn't establish a Handler for some reason")
+	}
+	e := echo.New()
+	// set routes here I guess
+	e.GET("/", h.getDefault)
+	e.GET("/yo/:name", h.getYo)
+	e.GET("/yo", func(c echo.Context) error { return c.HTML(http.StatusOK, "<p style='color:red'>Shy, eh?</p>") })
+	e.GET("loc/:xyz", h.getLocXYZ)
+	e.PUT("loc/:xyz", h.putLocXYZ)
+
+	defer e.Logger.Fatal(e.Start(":3210"))
 }
 
-func getDefault(c echo.Context) error {
+// Handler encapsulates web handling with persistence
+type Handler struct {
+	mongoDB per.MongoAbstraction
+}
+
+// NewHandler returns a route handler instance with the injected mongo layer
+func NewHandler(mdb per.MongoAbstraction) (result Handler, err error) {
+	h := Handler{
+		mongoDB: mdb,
+	}
+	return h, nil
+}
+
+func (h Handler) getDefault(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<h2>This is the default page - now with format!</h2>")
 }
 
-func getYo(c echo.Context) error {
+func (h Handler) getYo(c echo.Context) error {
+	err := h.mongoDB.ConnectToMongo()
+	if err != nil {
+		return fmt.Errorf("Got me an error: %s", err)
+	}
 	return c.HTML(http.StatusOK, fmt.Sprintf("Yo <i>%s</i>! What up?", c.Param("name")))
 }
 
-func getLocXYZ(c echo.Context) error {
-	loc := c.Param("xyz")
-	x,y,z,err := LocConvert(loc)
-	if err != nil {
-		return err
+func (h Handler) getLocXYZ(c echo.Context) error {
+	locID := c.Param("xyz")
+	if err := h.mongoDB.ConnectToMongo(); err != nil {
+		return c.HTML(http.StatusFailedDependency, "MongoDB not available")
 	}
-	return c.String(http.StatusOK, fmt.Sprintf("XYZ after split: %d, %d, %d", x, y, z))
+	loc, err := h.mongoDB.FetchFromCollection(locCollection, locID)
+	if err != nil {
+		return c.HTML(http.StatusNotFound, fmt.Sprintf("%s doesn't exist in DB", locID))
+	}
+	return c.String(http.StatusOK, fmt.Sprintf("XYZ is: %v", loc.GetID()))
 }
 
-func putLocXYZ(c echo.Context ) error {
+func (h Handler) putLocXYZ(c echo.Context) error {
 	loc := c.Param("xyz")
-	x,y,z,err := LocConvert(loc)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("This is where I'd persist loc %d.%d.%d\n", x,y,z)
-	return nil
+	/* 	x,y,z,err := per.LocConvert(loc)
+	   	if err != nil {
+	   		return err
+	   	}
+	   	fmt.Printf("This is where I'd persist loc %d.%d.%d\n", x,y,z) */
+	return c.String(http.StatusMethodNotAllowed, fmt.Sprintf("putLocXYZ: %s", loc))
 }
