@@ -5,14 +5,15 @@ import (
 	"time"
 	//"fmt"
 	mgo "gopkg.in/mgo.v2"
+	"webstuff/types"
 )
 
 // MongoAbstraction defines the set of DAL functions for accessing this Mongo collection
 type MongoAbstraction interface {
 	ConnectToMongo() error
-	WriteCollection(collectionName string, object Loc) error
-	UpdateCollection(collectionName string, object Loc) error
-	FetchFromCollection(collectionName string, id string) (Loc, error)
+	WriteCollection(collectionName string, object types.Loc) error
+	UpdateCollection(collectionName string, object types.Loc) error
+	FetchFromCollection(collectionName string, id string) (types.Loc, error)
 }
 
 // MongoSession defines an instantiation of a Mongo DAL. The session maintains a connected state to Mongodb.
@@ -64,7 +65,7 @@ func (ms *MongoSession) CheckAndReconnect() (err error) {
 }
 
 // WriteCollection writes the specified loc object to a given collection
-func (ms *MongoSession) WriteCollection(coll string, obj Loc) error {
+func (ms *MongoSession) WriteCollection(coll string, obj types.Loc) error {
 	if err := ms.CheckAndReconnect(); err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func (ms *MongoSession) WriteCollection(coll string, obj Loc) error {
 }
 
 // UpdateCollection updates the loc object in the specified collection with a matching _id element to the passed in object
-func (ms *MongoSession) UpdateCollection(coll string, obj Loc) error {
+func (ms *MongoSession) UpdateCollection(coll string, obj types.Loc) error {
 	if err := ms.CheckAndReconnect(); err != nil {
 		return err
 	}
@@ -83,8 +84,8 @@ func (ms *MongoSession) UpdateCollection(coll string, obj Loc) error {
 }
 
 // FetchFromCollection fetches the Loc by ID from the specified collection
-func (ms *MongoSession) FetchFromCollection(coll string, id string) (result Loc, err error) {
-	result = Loc{}
+func (ms *MongoSession) FetchFromCollection(coll string, id string) (result types.Loc, err error) {
+	result = types.Loc{}
 	if err = ms.CheckAndReconnect(); err != nil {
 		return
 	}

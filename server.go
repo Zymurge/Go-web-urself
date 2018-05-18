@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	per "webstuff/persistence"
+	"webstuff/types"
 
 	"github.com/labstack/echo"
+	mgo "gopkg.in/mgo.v2"
 )
 
 const (
@@ -23,8 +25,6 @@ func main() {
 	e := echo.New()
 	// set routes here I guess
 	e.GET("/", h.getDefault)
-	e.GET("/yo/:name", h.getYo)
-	e.GET("/yo", func(c echo.Context) error { return c.HTML(http.StatusOK, "<p style='color:red'>Shy, eh?</p>") })
 	e.GET("loc/:xyz", h.getLocXYZ)
 	e.PUT("loc/:xyz", h.putLocXYZ)
 
@@ -48,14 +48,6 @@ func (h Handler) getDefault(c echo.Context) error {
 	return c.HTML(http.StatusOK, "<h2>This is the default page - now with format!</h2>")
 }
 
-func (h Handler) getYo(c echo.Context) error {
-	err := h.mongoDB.ConnectToMongo()
-	if err != nil {
-		return fmt.Errorf("Got me an error: %s", err)
-	}
-	return c.HTML(http.StatusOK, fmt.Sprintf("Yo <i>%s</i>! What up?", c.Param("name")))
-}
-
 func (h Handler) getLocXYZ(c echo.Context) error {
 	locID := c.Param("xyz")
 	if err := h.mongoDB.ConnectToMongo(); err != nil {
@@ -65,15 +57,24 @@ func (h Handler) getLocXYZ(c echo.Context) error {
 	if err != nil {
 		return c.HTML(http.StatusNotFound, fmt.Sprintf("%s doesn't exist in DB", locID))
 	}
-	return c.String(http.StatusOK, fmt.Sprintf("XYZ is: %v", loc.GetID()))
+	return c.HTML(http.StatusOK, string(loc.JSONForm()))
 }
 
 func (h Handler) putLocXYZ(c echo.Context) error {
-	loc := c.Param("xyz")
-	/* 	x,y,z,err := per.LocConvert(loc)
-	   	if err != nil {
-	   		return err
-	   	}
-	   	fmt.Printf("This is where I'd persist loc %d.%d.%d\n", x,y,z) */
-	return c.String(http.StatusMethodNotAllowed, fmt.Sprintf("putLocXYZ: %s", loc))
+	locString := c.Param("xyz")
+	loc, err := types.LocFromString(locString)
+	if err != nil {
+		return c.HTML(http.StatusBadRequest, "Bad string for param xyz")
+	}
+	if err := h.mongoDB.ConnectToMongo(); err != nil {
+		return c.HTML(http.StatusFailedDependency, "MongoDB not available")
+	}
+	err = h.mongoDB.WriteCollection(locCollection, loc)
+	if err != nil {
+		if mgo.IsDup(err) {
+			return c.HTML(http.StatusAlreadyReported, fmt.Sprintf("Duplicate insert for xyz: %s", loc.GetID()))
+		}
+		return c.HTML(http.StatusFailedDependency, fmt.Sprintf("Unknown error on Mongo insert: %v", err))
+	}
+	return c.HTML(http.StatusOK, fmt.Sprintf("Inserted: %s", loc.GetID()))
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	mgo "gopkg.in/mgo.v2"
+	"webstuff/types"
 )
 
 const (
@@ -101,7 +102,7 @@ func (m *MongoSessionSuite) TestWriteCollection() {
 		err := ClearMongoCollection(t, m.session, testCollection)
 		require.NoError(t, err, "Test failed in setup clearing collection. Err: %s", err )
 		testMS := NewMongoSession(testMongoURL, testDbName, 3)
-		testLoc, _ := LocFromCoords( 1, 2, 3 )
+		testLoc, _ := types.LocFromCoords( 1, 2, 3 )
 		err = testMS.WriteCollection(testCollection, testLoc)
 		require.NoError(t, err, "Successful write throws no error. Instead we got %s", err )
 	} )
