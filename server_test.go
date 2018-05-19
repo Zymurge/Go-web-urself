@@ -16,21 +16,17 @@ func TestWebServesSomething(t* testing.T) {
 
 func TestGetLocXYZ(t *testing.T) {
 	// Base setup is handler w/mock context and param for xyz. Each case must:
-	//   - set param value
+	//   - get context with target and param value
 	//   - set mock mode flags
 	expectedID := "5.6.7"
 	expectedBody := "set me"
 	mock, handler := NewHandlerWithMockMongo(t)
-	req := httptest.NewRequest(echo.GET, "/loc/" + expectedID, nil)
-	rec := httptest.NewRecorder()
-	ctx := echo.New().NewContext(req, rec)
-	ctx.SetParamNames("xyz")
 
 	t.Run("Positive", func(t *testing.T){
 		expectedID = "5.6.7"
 		expectedLoc, _ := types.LocFromString(expectedID)
 		expectedBody = string(expectedLoc.JSONForm())
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.getLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on positive test. Got: %s", err)
@@ -41,11 +37,7 @@ func TestGetLocXYZ(t *testing.T) {
 		expectedID = "15.16.17"
 		expectedBody = fmt.Sprintf("%s doesn't exist in DB", expectedID)
 		mock.queryMode = "fail"
-		req = httptest.NewRequest(echo.GET, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.getLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -55,11 +47,7 @@ func TestGetLocXYZ(t *testing.T) {
 	t.Run("No Mongo", func(t *testing.T){
 		expectedBody := fmt.Sprintf("MongoDB not available")
 		mock.connectMode = "no connect"
-		req = httptest.NewRequest(echo.GET, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.getLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -70,21 +58,16 @@ func TestGetLocXYZ(t *testing.T) {
 
 func TestPutLocXYZ(t *testing.T) {
 	// Base setup is handler w/mock context and param for xyz. Each case must:
-	//   - set param value
+	//   - get context with target and param value
 	//   - set mock mode flags
 	expectedID := "5.6.7"
-	//putLoc, _ := types.LocFromString(expectedID)
 	expectedBody := "set me"
 	mock, handler := NewHandlerWithMockMongo(t)
-	req := httptest.NewRequest(echo.PUT, "/loc/" + expectedID, nil)
-	rec := httptest.NewRecorder()
-	ctx := echo.New().NewContext(req, rec)
-	ctx.SetParamNames("xyz")
 
 	t.Run("Positive", func(t *testing.T){
 		mock.connectMode = "positive"
 		mock.writeMode = "positive"
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.PUT, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.putLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on positive test. Got: %s", err)
@@ -94,11 +77,7 @@ func TestPutLocXYZ(t *testing.T) {
 		expectedBody = fmt.Sprintf("Duplicate insert for xyz: %s", expectedID)
 		mock.connectMode = "positive"
 		mock.writeMode = "duplicate"
-		req = httptest.NewRequest(echo.PUT, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.putLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -110,11 +89,7 @@ func TestPutLocXYZ(t *testing.T) {
 		badID := "a.7.tty"
 		mock.connectMode = "positive"
 		mock.writeMode = "positive"
-		req = httptest.NewRequest(echo.PUT, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(badID)
+		ctx, rec := GetNewEchoContext(echo.PUT, "/loc/" + badID, "xyz", badID )
 
 		err := handler.putLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -126,11 +101,7 @@ func TestPutLocXYZ(t *testing.T) {
 		expectedBody = fmt.Sprintf("Unknown error on Mongo insert: %s", mockErrorMsg)
 		mock.connectMode = "positive"
 		mock.writeMode = "fail"
-		req = httptest.NewRequest(echo.PUT, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.putLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -140,11 +111,7 @@ func TestPutLocXYZ(t *testing.T) {
 	t.Run("No Mongo", func(t *testing.T){
 		expectedBody := fmt.Sprintf("MongoDB not available")
 		mock.connectMode = "no connect"
-		req = httptest.NewRequest(echo.PUT, "/loc/" + expectedID, nil)
-		rec = httptest.NewRecorder()
-		ctx = echo.New().NewContext(req, rec)
-		ctx.SetParamNames("xyz")
-		ctx.SetParamValues(expectedID)
+		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.putLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
@@ -152,6 +119,8 @@ func TestPutLocXYZ(t *testing.T) {
 		require.Equal(t, expectedBody, rec.Body.String())
 	})
 }
+
+/*** Helper functions ***/
 
 func NewHandlerWithMockMongo(t *testing.T) (*MockMongoSession, *Handler) {
 	mock := &MockMongoSession{
@@ -162,5 +131,18 @@ func NewHandlerWithMockMongo(t *testing.T) (*MockMongoSession, *Handler) {
 	require.NoErrorf(t, err, "Issue with handler construction: %s", err)
 	require.NotNil(t, handler)
 	return mock, &handler
+}
+
+// GetNewEchoContext is a helper method to aggregate common things into a single EchoContext for use in testing
+// web requests.
+// The method param must be one of the known echo constants (ie - GET, PUT, UPDATE, etc) 
+// It currently only supports a single param and value.
+func GetNewEchoContext(method string, target string, pname string, pvalue string) (ctx echo.Context, rec *httptest.ResponseRecorder) {
+	req := httptest.NewRequest(method, target, nil)
+	rec = httptest.NewRecorder()
+	ctx = echo.New().NewContext(req, rec)
+	ctx.SetParamNames(pname)
+	ctx.SetParamValues(pvalue)
+	return
 }
 
