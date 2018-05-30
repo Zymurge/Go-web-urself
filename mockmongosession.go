@@ -60,7 +60,11 @@ func (mm *MockMongoSession) UpdateCollection(collectionName string, object types
 	case mm.writeMode == "fail":
 		return fmt.Errorf("Mock error on update")
 	case mm.writeMode == "missing":
-		return fmt.Errorf("Mock not found on update")
+		err := mgo.QueryError {
+			Code: 11000, // TODO: find the right error Code and type
+			Message: "Mock not found on update",
+		}
+		return &err
 	}
 	return fmt.Errorf("Unknown mode for UpdateCollection: %s", mm.writeMode)
 }
@@ -76,7 +80,28 @@ func (mm *MockMongoSession) FetchFromCollection(collectionName string, id string
 		}
 		return result, nil
 	case mm.queryMode == "fail":
-		return result, fmt.Errorf("Mock error by request")
+		return result, fmt.Errorf("Mock error on get")
 	}
 	return result, fmt.Errorf("Unknown mode for FetchFromCollection: %s", mm.queryMode)
+}
+
+// DeleteFromCollection mock. Controlled by mm.queryMode values 'positive' and 'fail'
+func (mm *MockMongoSession) DeleteFromCollection(collectionName string, id string) (error) {
+	switch {
+	case mm.writeMode == "positive":
+		_, err := types.LocFromString(id)
+		if err != nil {
+			return fmt.Errorf("Mock error creating loc")
+		}
+		return nil
+	case mm.writeMode == "fail":
+		return fmt.Errorf("Mock error on delete")
+	case mm.writeMode == "missing":
+		err := mgo.QueryError {
+			Code: 11000, // TODO: find the right error Code and type
+			Message: "Mock not found on delete",
+		}
+		return &err
+	}
+	return fmt.Errorf("Unknown mode for DeleteFromCollection: %s", mm.queryMode)
 }

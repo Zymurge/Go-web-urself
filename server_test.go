@@ -50,13 +50,13 @@ func TestGetLocXYZ(t *testing.T) {
 		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
 
 		err := handler.getLocXYZ(ctx)
-		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
+		require.NoErrorf(t, err, "Didn't want an error on no mongo test. Got: %s", err)
 		require.Equalf(t, http.StatusFailedDependency, rec.Code, "HTTP response should be failed dependency")
 		require.Equal(t, expectedBody, rec.Body.String())
 	})
 }
 
-func TestPutLocXYZ(t *testing.T) {
+func TestPostLocXYZ(t *testing.T) {
 	// Base setup is handler w/mock context and param for xyz. Each case must:
 	//   - get context with target and param value
 	//   - set mock mode flags
@@ -67,9 +67,9 @@ func TestPutLocXYZ(t *testing.T) {
 	t.Run("Positive", func(t *testing.T){
 		mock.connectMode = "positive"
 		mock.writeMode = "positive"
-		ctx, rec := GetNewEchoContext(echo.PUT, "/loc/" + expectedID, "xyz", expectedID )
+		ctx, rec := GetNewEchoContext(echo.POST, "/loc/" + expectedID, "xyz", expectedID )
 
-		err := handler.putLocXYZ(ctx)
+		err := handler.postLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on positive test. Got: %s", err)
 		require.Equalf(t, http.StatusOK, rec.Code, "HTTP response should be success")
 	})
@@ -77,9 +77,9 @@ func TestPutLocXYZ(t *testing.T) {
 		expectedBody = fmt.Sprintf("Duplicate insert for xyz: %s", expectedID)
 		mock.connectMode = "positive"
 		mock.writeMode = "duplicate"
-		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
+		ctx, rec := GetNewEchoContext(echo.POST, "/loc/" + expectedID, "xyz", expectedID )
 
-		err := handler.putLocXYZ(ctx)
+		err := handler.postLocXYZ(ctx)
 		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
 		require.Equalf(t, http.StatusAlreadyReported, rec.Code, "HTTP response should be already reported to represent duplicate insert")
 		require.Equal(t, expectedBody, rec.Body.String())
@@ -89,10 +89,10 @@ func TestPutLocXYZ(t *testing.T) {
 		badID := "a.7.tty"
 		mock.connectMode = "positive"
 		mock.writeMode = "positive"
-		ctx, rec := GetNewEchoContext(echo.PUT, "/loc/" + badID, "xyz", badID )
+		ctx, rec := GetNewEchoContext(echo.POST, "/loc/" + badID, "xyz", badID )
 
-		err := handler.putLocXYZ(ctx)
-		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
+		err := handler.postLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on bad loc test. Got: %s", err)
 		require.Equalf(t, http.StatusBadRequest, rec.Code, "HTTP response should be bad request for malformed Loc string")
 		require.Equal(t, expectedBody, rec.Body.String())
 	})
@@ -101,24 +101,81 @@ func TestPutLocXYZ(t *testing.T) {
 		expectedBody = fmt.Sprintf("Unknown error on Mongo insert: %s", mockErrorMsg)
 		mock.connectMode = "positive"
 		mock.writeMode = "fail"
-		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
+		ctx, rec := GetNewEchoContext(echo.POST, "/loc/" + expectedID, "xyz", expectedID )
 
-		err := handler.putLocXYZ(ctx)
-		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
+		err := handler.postLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on other mongo error test. Got: %s", err)
 		require.Equalf(t, http.StatusFailedDependency, rec.Code, "HTTP response should be failed dependency")
 		require.Equal(t, expectedBody, rec.Body.String())
 	})
 	t.Run("No Mongo", func(t *testing.T){
 		expectedBody := fmt.Sprintf("MongoDB not available")
 		mock.connectMode = "no connect"
-		ctx, rec := GetNewEchoContext(echo.GET, "/loc/" + expectedID, "xyz", expectedID )
+		ctx, rec := GetNewEchoContext(echo.POST, "/loc/" + expectedID, "xyz", expectedID )
 
-		err := handler.putLocXYZ(ctx)
-		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
+		err := handler.postLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on no mongo test. Got: %s", err)
 		require.Equalf(t, http.StatusFailedDependency, rec.Code, "HTTP response should be failed dependency")
 		require.Equal(t, expectedBody, rec.Body.String())
 	})
 }
+
+func TestDeleteLocXYZ(t *testing.T) {
+	// Base setup is handler w/mock context and param for xyz. Each case must:
+	//   - get context with target and param value
+	//   - set mock mode flags
+	expectedID := "5.6.7"
+	expectedBody := "set me"
+	mock, handler := NewHandlerWithMockMongo(t)
+
+	t.Run("Positive", func(t *testing.T){
+		expectedID := "5.6.7"
+		expectedBody = fmt.Sprintf("%s deleted from DB", expectedID)
+		mock.connectMode = "positive"
+		mock.writeMode = "positive"
+		ctx, rec := GetNewEchoContext(echo.DELETE, "/loc/" + expectedID, "xyz", expectedID )
+
+		err := handler.deleteLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on positive test. Got: %s", err)
+		require.Equalf(t, http.StatusOK, rec.Code, "HTTP response should be success")
+		require.Equalf(t, expectedBody, rec.Body.String(), "Wanted the loc confirmation on delete. Got %s", rec.Body)
+	})
+	t.Run("Missing ID", func(t *testing.T){
+		expectedID = "15.16.17"
+		expectedBody = fmt.Sprintf("%s doesn't exist in DB", expectedID)
+		mock.writeMode = "missing"
+		ctx, rec := GetNewEchoContext(echo.DELETE, "/loc/" + expectedID, "xyz", expectedID )
+
+		err := handler.deleteLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on not found test. Got: %s", err)
+		require.Equalf(t, http.StatusNotFound, rec.Code, "HTTP response should be not found")
+		require.Equal(t, expectedBody, rec.Body.String())
+	})
+	t.Run("No Mongo", func(t *testing.T){
+		expectedBody = "MongoDB not available"
+		mock.connectMode = "no connect"
+		ctx, rec := GetNewEchoContext(echo.DELETE, "/loc/" + expectedID, "xyz", expectedID )
+
+		err := handler.deleteLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on no mongo test. Got: %s", err)
+		require.Equalf(t, http.StatusFailedDependency, rec.Code, "HTTP response should be failed dependency")
+		require.Equal(t, expectedBody, rec.Body.String())
+	})
+	t.Run("Other Mongo error", func(t *testing.T){
+		mockErrorMsg := "Mock error on delete"
+		expectedBody = fmt.Sprintf("Unknown error on Mongo delete: %s", mockErrorMsg)
+		mock.connectMode = "positive"
+		mock.writeMode = "fail"
+		ctx, rec := GetNewEchoContext(echo.DELETE, "/loc/" + expectedID, "xyz", expectedID )
+
+		err := handler.deleteLocXYZ(ctx)
+		require.NoErrorf(t, err, "Didn't want an error on other mongo error test. Got: %s", err)
+		require.Equalf(t, http.StatusFailedDependency, rec.Code, "HTTP response should be failed dependency")
+		require.Equal(t, expectedBody, rec.Body.String())
+	})
+
+}
+
 
 /*** Helper functions ***/
 

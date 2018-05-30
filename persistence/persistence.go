@@ -14,6 +14,7 @@ type MongoAbstraction interface {
 	WriteCollection(collectionName string, object types.Loc) error
 	UpdateCollection(collectionName string, object types.Loc) error
 	FetchFromCollection(collectionName string, id string) (types.Loc, error)
+	DeleteFromCollection(collectionName string, id string) error
 }
 
 // MongoSession defines an instantiation of a Mongo DAL. The session maintains a connected state to Mongodb.
@@ -27,7 +28,7 @@ type MongoSession struct {
 
 // DbName designates the default DB name in mongo
 const (
-	DefaultDbName  string        = "testDB"
+	DefaultDbName  string        = "defaultDB"
 	DefaultTimeout time.Duration = 10 * time.Second
 )
 
@@ -74,12 +75,15 @@ func (ms *MongoSession) WriteCollection(coll string, obj types.Loc) error {
 }
 
 // UpdateCollection updates the loc object in the specified collection with a matching _id element to the passed in object
-func (ms *MongoSession) UpdateCollection(coll string, obj types.Loc) error {
+func (ms *MongoSession) UpdateCollection(collName string, obj types.Loc) error {
 	if err := ms.CheckAndReconnect(); err != nil {
 		return err
 	}
-	myCollection := ms.db.C(coll)
+	if !ms.collectionExists(collName) {
+		return fmt.Errorf("Non-existent collection for update: %s", collName)
+	}
 	id := obj.GetID()
+	myCollection := ms.db.C(collName)
 	return myCollection.UpdateId(id, obj)
 }
 
@@ -94,4 +98,26 @@ func (ms *MongoSession) FetchFromCollection(coll string, id string) (result type
 	q := myCollection.FindId(id)
 	err = q.One(&result)
 	return
+}
+
+// DeleteFromCollection removes the Loc by ID from the specified collection
+func (ms *MongoSession) DeleteFromCollection(coll string, id string) (err error) {
+	if err := ms.CheckAndReconnect(); err != nil {
+		return err
+	}
+	myCollection := ms.db.C(coll)
+	return myCollection.RemoveId(id)
+}
+
+func (ms *MongoSession) collectionExists(collName string) bool {
+	names, err := ms.db.CollectionNames()
+	if err != nil { 
+		return false 
+	}
+	for _, n := range names {
+		if collName == n {
+			return true
+		}
+	}
+	return false
 }
