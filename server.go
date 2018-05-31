@@ -6,6 +6,8 @@ import (
 	"net/http"
 	per "webstuff/persistence"
 	"webstuff/types"
+	"log"
+	"os"
 
 	"github.com/labstack/echo"
 	mgo "gopkg.in/mgo.v2"
@@ -18,7 +20,8 @@ const (
 )
 
 func main() {
-	mdb := per.NewMongoSession(mongoURL, dbName, 10)
+	logger := log.New(os.Stdout, "server: ", log.Ldate|log.Ltime)
+	mdb := per.NewMongoSession(mongoURL, dbName, logger, 10)
 	h, err := NewHandler(mdb)
 	if err != nil {
 		panic("Couldn't establish a Handler for some reason")
