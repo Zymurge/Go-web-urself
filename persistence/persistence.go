@@ -3,7 +3,8 @@ package persistence
 import (
 	"fmt"
 	"time"
-	//"fmt"
+	"log"
+	"os"
 	mgo "gopkg.in/mgo.v2"
 	"webstuff/types"
 )
@@ -19,11 +20,12 @@ type MongoAbstraction interface {
 
 // MongoSession defines an instantiation of a Mongo DAL. The session maintains a connected state to Mongodb.
 type MongoSession struct {
-	session        *mgo.Session
-	db             *mgo.Database
-	mongoURL       string
-	dbName         string
-	timeoutSeconds time.Duration
+	session			*mgo.Session
+	db				*mgo.Database
+	mongoURL		string
+	dbName			string
+	timeoutSeconds	time.Duration
+	logger			*log.Logger
 }
 
 // DbName designates the default DB name in mongo
@@ -33,15 +35,23 @@ const (
 )
 
 // NewMongoSession is a factory method to create a fresh MongoSession for a given connection string and DB
-func NewMongoSession(mongoURL string, dbName string, toDuration int64) *MongoSession {
+// toDuration should be expressed as a multiple of time.Second
+func NewMongoSession(mongoURL string, dbName string, logger *log.Logger, overrideTo ...int64) *MongoSession {
 	result := &MongoSession{
-		mongoURL: mongoURL,
-		dbName:   dbName,
+		mongoURL:		mongoURL,
+		dbName:			dbName,
+		timeoutSeconds:	DefaultTimeout,
+		logger:			logger,
 	}
 	if result.dbName == "" {
 		result.dbName = DefaultDbName
 	}
-	result.timeoutSeconds = time.Duration(toDuration) * time.Second
+	if result.logger == nil {
+		result.logger = log.New(os.Stdout, "mongoLayer", log.Ldate|log.Ltime)
+	}
+	if len(overrideTo) > 0 {
+		result.timeoutSeconds = time.Duration(overrideTo[0]) * time.Second
+	}
 
 	return result
 }
@@ -68,6 +78,7 @@ func (ms *MongoSession) CheckAndReconnect() (err error) {
 // WriteCollection writes the specified loc object to a given collection
 func (ms *MongoSession) WriteCollection(coll string, obj types.Loc) error {
 	if err := ms.CheckAndReconnect(); err != nil {
+		ms.logger.Printf("WriteCollection: could not establish mongo connection: %s", err)
 		return err
 	}
 	myCollection := ms.db.C(coll)
@@ -77,6 +88,7 @@ func (ms *MongoSession) WriteCollection(coll string, obj types.Loc) error {
 // UpdateCollection updates the loc object in the specified collection with a matching _id element to the passed in object
 func (ms *MongoSession) UpdateCollection(collName string, obj types.Loc) error {
 	if err := ms.CheckAndReconnect(); err != nil {
+		ms.logger.Printf("UpdateCollection: could not establish mongo connection: %s", err)
 		return err
 	}
 	if !ms.collectionExists(collName) {
@@ -91,9 +103,9 @@ func (ms *MongoSession) UpdateCollection(collName string, obj types.Loc) error {
 func (ms *MongoSession) FetchFromCollection(coll string, id string) (result types.Loc, err error) {
 	result = types.Loc{}
 	if err = ms.CheckAndReconnect(); err != nil {
+		ms.logger.Printf("FetchFromCollection: could not establish mongo connection: %s", err)
 		return
 	}
-	fmt.Printf("Calling mongo collection: %s\nDB = %v", coll, ms.db)
 	myCollection := ms.db.C(coll)
 	q := myCollection.FindId(id)
 	err = q.One(&result)
@@ -103,6 +115,7 @@ func (ms *MongoSession) FetchFromCollection(coll string, id string) (result type
 // DeleteFromCollection removes the Loc by ID from the specified collection
 func (ms *MongoSession) DeleteFromCollection(coll string, id string) (err error) {
 	if err := ms.CheckAndReconnect(); err != nil {
+		ms.logger.Printf("DeleteFromCollection: could not establish mongo connection: %s", err)
 		return err
 	}
 	myCollection := ms.db.C(coll)
