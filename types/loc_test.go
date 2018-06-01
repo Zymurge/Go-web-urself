@@ -65,10 +65,16 @@ func TestLocConvertTooManyCoords(t * testing.T) {
 }
 
 func TestLocConvertNonIntCoords(t * testing.T) {
-	testInput := "22.five.13"
-	_,_,_,err := LocConvert(testInput)
-	require.Error( t, err, "Non-int based coords should throw an error")
-	assert.True( t, strings.Contains( err.Error(), "integer"), "Expect an error message that mentions the proper format" )
+	testCases := []string {
+		"x.2.-5",
+		"22.five.13",
+		 "9.42.george lopez",
+	}
+	for _,test := range testCases {
+		_,_,_,err := LocConvert(test)
+		require.Error( t, err, "Non-int based coords should throw an error")
+		require.Contains( t, err.Error(), "integer", "Expect an error message that mentions the proper format")
+	}
 }
 
 func TestLocFromCoordsID( t *testing.T) {

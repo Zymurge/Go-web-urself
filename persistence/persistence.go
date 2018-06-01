@@ -58,7 +58,6 @@ func NewMongoSession(mongoURL string, dbName string, logger *log.Logger, overrid
 
 // ConnectToMongo creates a connection to the specified mongodb instance
 func (ms *MongoSession) ConnectToMongo() (err error) {
-	//to := ms.timeoutSeconds != nil ? ms.timeoutSeconds : DefaultTimeout
 	ms.session, err = mgo.DialWithTimeout(ms.mongoURL, ms.timeoutSeconds)
 	if err != nil {
 		return
